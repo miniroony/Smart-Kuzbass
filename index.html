@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Смарт Кузбасс</title>
+  <title>SmartKuzbass</title>
+  <link rel="shortcut icon" href="img/logo.jpg" type="image/x-icon">
   
   <!-- Telegram WebApp API -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -17,10 +18,10 @@
 <body>
   <!-- Шапка приложения -->
   <header class="app-header">
-    <img src="logo.jpg" alt="Смарт Кузбасс" class="logo">
+    <img src="img/logo.jpg" alt="Смарт Кузбасс" class="logo">
     <div class="header-text">
       <h1>Смарт Кузбасс</h1>
-      <p>Благоустройство малых городов</p>
+      <p>Делаем жизнь граждан легче</p>
     </div>
   </header>
 
@@ -30,24 +31,26 @@
     <!-- Вкладка: Карта -->
     <section id="tab-map" class="tab-content active">
       <div class="tab-header">
-        <h2>Карта обращений</h2>
-        <button id="btn-locate" class="btn-icon" title="Моё местоположение">📍</button>
+          <h2>Карта</h2>
+        <button id="btn-locate" class="btn-icon" title="Моё местоположение">
+          <img src="img/pin.png" class="nav-icon-img" alt="Пин">
+        </button>
       </div>
       <div id="map" class="map-container"></div>
       <div class="map-info">
-        <p id="location-status">Определение местоположения...</p>
+        <p id="location-status">Ищем где вы сейчас...</p>
       </div>
     </section>
 
     <!-- Вкладка: Добавить обращение -->
     <section id="tab-add" class="tab-content">
       <div class="tab-header">
-        <h2>Новое обращение</h2>
+        <h2>Создать обращение</h2>
       </div>
       
       <form id="appeal-form" class="appeal-form">
         <div class="form-group">
-          <label for="appeal-category">Категория</label>
+          <label for="appeal-category">Категория*</label>
           <select id="appeal-category" required>
             <option value="">Выберите категорию</option>
             <option value="roads">Дороги и тротуары</option>
@@ -60,32 +63,33 @@
         </div>
 
         <div class="form-group">
-          <label for="appeal-title">Краткое описание</label>
-          <input type="text" id="appeal-title" placeholder="Например: Яма на дороге" maxlength="80" required>
+          <label for="appeal-title">Опишите проблему*</label>
+          <input type="text" id="appeal-title" placeholder="Например: Гололед" maxlength="80" required>
         </div>
 
         <div class="form-group">
-          <label for="appeal-description">Подробности</label>
-          <textarea id="appeal-description" rows="4" placeholder="Опишите проблему подробнее..." required></textarea>
+          <label for="appeal-description">Подробности*</label>
+          <textarea id="appeal-description" rows="4" placeholder="Очень скользко, ходить невозможно" required></textarea>
         </div>
 
         <div class="form-group">
-          <label for="appeal-photo">Фото (необязательно)</label>
+          <label for="appeal-photo">Фото</label>
           <input type="file" id="appeal-photo" accept="image/*" capture="environment">
           <div id="photo-preview" class="photo-preview hidden"></div>
         </div>
 
         <div class="form-group location-group">
           <label>Местоположение</label>
-          <p id="form-location" class="location-text">Определяется автоматически...</p>
+          <p id="form-location" class="location-text">Ищем вас...</p>
           <button type="button" id="btn-refresh-location" class="btn-secondary">Обновить</button>
         </div>
 
-        <button type="submit" class="btn-primary">Отправить обращение</button>
+        <button type="submit" class="btn-primary">Отправить</button>
       </form>
 
       <div id="form-success" class="success-message hidden">
-        ✅ Обращение отправлено! Мы уже работаем над ним.
+        <img src="img/check.png" class="nav-icon-img-big" alt="">
+        Обращение отправлено! Следите за статусом в профиле
       </div>
     </section>
 
@@ -109,13 +113,15 @@
     <!-- Вкладка: Профиль -->
     <section id="tab-profile" class="tab-content">
       <div class="tab-header">
-        <h2>Мой профиль</h2>
+        <h2>Профиль</h2>
       </div>
 
       <div class="profile-card">
         <div class="avatar-wrapper">
-          <img id="profile-avatar" src="https://via.placeholder.com/100" alt="Аватар" class="avatar">
-          <button id="btn-change-avatar" class="btn-avatar">📷</button>
+          <img id="profile-avatar" src="img/user.png" alt="Аватар" class="avatar">
+          <button id="btn-change-avatar" class="btn-avatar">
+            <img src="img/photo.png" class="nav-icon-img" alt="">
+          </button>
         </div>
         
         <div class="profile-info">
@@ -125,7 +131,7 @@
           </div>
           
           <div class="form-group">
-            <label for="profile-phone">Телефон</label>
+            <label for="profile-phone">Номер</label>
             <input type="tel" id="profile-phone" placeholder="+7 (999) 123-45-67">
           </div>
           
@@ -135,7 +141,7 @@
           </div>
         </div>
 
-        <button id="btn-save-profile" class="btn-primary">Сохранить профиль</button>
+        <button id="btn-save-profile" class="btn-primary">Сохранить</button>
       </div>
 
       <div class="profile-stats">
@@ -150,7 +156,7 @@
       </div>
 
       <div class="profile-actions">
-        <button id="btn-clear-data" class="btn-danger">Очистить все данные</button>
+        <button id="btn-clear-data" class="btn-danger">Удалить данные</button>
       </div>
     </section>
   </main>
@@ -158,20 +164,16 @@
   <!-- Нижняя навигация (вкладки) -->
   <nav class="bottom-nav">
     <button class="nav-item active" data-tab="map">
-      <span class="nav-icon">🗺️</span>
-      <span class="nav-label">Карта</span>
+      <img src="img/map.png" class="nav-icon-img" alt="Карта">
     </button>
     <button class="nav-item" data-tab="add">
-      <span class="nav-icon">➕</span>
-      <span class="nav-label">Добавить</span>
+      <img src="img/add.png" class="nav-icon-img" alt="Добавить">
     </button>
     <button class="nav-item" data-tab="feed">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">Лента</span>
+      <img src="img/news.png" class="nav-icon-img" alt="Новости">
     </button>
     <button class="nav-item" data-tab="profile">
-      <span class="nav-icon">👤</span>
-      <span class="nav-label">Профиль</span>
+      <img src="img/profile.png" class="nav-icon-img" alt="Профиль">
     </button>
   </nav>
 
