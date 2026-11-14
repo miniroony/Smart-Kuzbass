@@ -168,7 +168,7 @@ function locateUser() {
     return;
   }
   
-  statusEl.textContent = 'Определение местоположения...';
+  statusEl.textContent = 'Ищем вас...';
   
   navigator.geolocation.getCurrentPosition(
     // Успех
@@ -188,7 +188,7 @@ function locateUser() {
       userMarker = L.marker([latitude, longitude], {
         title: 'Вы здесь'
       }).addTo(map)
-        .bindPopup('📍 Вы здесь')
+        .bindPopup('Это вы')
         .openPopup();
       
       statusEl.textContent = `📍 Ваши координаты: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
@@ -202,7 +202,7 @@ function locateUser() {
     // Ошибка
     (error) => {
       console.error('Ошибка геолокации:', error);
-      let message = 'Не удалось определить местоположение';
+      let message = 'Не удалось вас найти';
       
       if (error.code === 1) {
         message = 'Вы запретили доступ к геолокации. Разрешите в настройках браузера.';
@@ -390,9 +390,9 @@ function renderFeed() {
   if (appeals.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
-        <span>📭</span>
         <p>Пока нет обращений</p>
-        <p style="font-size:13px; margin-top:8px;">Нажмите «Добавить», чтобы создать первое</p>
+        <p style="font-size:13px; margin-top:8px;">Значит, всё хорошо :)) </p>
+        <img src="img/open.png" class="nav-icon-img-big" alt="Добавить">
       </div>
     `;
     return;
@@ -511,68 +511,24 @@ function updateStats() {
 
 // Очистка данных (для тестирования)
 document.getElementById('btn-clear-data').addEventListener('click', () => {
-  if (confirm('Удалить все обращения и данные профиля? Это нельзя отменить.')) {
+  if (confirm('После подтверждения все данные удалятся. Вы точно хотите?')) {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(PROFILE_KEY);
     renderFeed();
     updateStats();
     loadProfile();
     if (map) renderAppealMarkers();
-    alert('Данные очищены');
+    alert('Данные удалены');
   }
 });
 
-// ============================================================
-// 10. ДЕМО-ДАННЫЕ (чтобы лента не была пустой при первом запуске)
-// ============================================================
-
-function seedDemoData() {
-  const appeals = getAppeals();
-  if (appeals.length > 0) return; // Уже есть данные
-  
-  const demo = [
-    {
-      id: '1',
-      category: 'roads',
-      title: 'Глубокая яма на ул. Ленина',
-      description: 'Около дома 45 образовалась большая яма после дождей. Опасно для машин и пешеходов.',
-      status: 'in_progress',
-      createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      lat: 55.355,
-      lng: 86.090
-    },
-    {
-      id: '2',
-      category: 'lighting',
-      title: 'Не работает фонарь во дворе',
-      description: 'Фонарь около подъезда 3 дома 12 по ул. Советской не горит уже неделю.',
-      status: 'new',
-      createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-      lat: 55.350,
-      lng: 86.085
-    },
-    {
-      id: '3',
-      category: 'playgrounds',
-      title: 'Сломана качель на детской площадке',
-      description: 'На площадке во дворе дома 8 одна качель оторвана. Дети могут получить травму.',
-      status: 'done',
-      createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-      lat: 55.360,
-      lng: 86.095
-    }
-  ];
-  
-  saveAppeals(demo);
-}
 
 // ============================================================
-// 11. ЗАПУСК ПРИЛОЖЕНИЯ
+// 10. ЗАПУСК ПРИЛОЖЕНИЯ
 // ============================================================
 
 // Когда страница полностью загрузилась
 document.addEventListener('DOMContentLoaded', () => {
-  seedDemoData();   // Добавляем демо-данные, если пусто
   initMap();        // Создаём карту
   renderFeed();     // Рисуем ленту
   loadProfile();    // Загружаем профиль
