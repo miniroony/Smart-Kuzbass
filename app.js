@@ -1,54 +1,22 @@
 /**
- * ============================================================
- *  СМАРТ КУЗБАСС — Telegram Mini App
- *  Основной файл логики приложения
- * ============================================================
- *
- *  Как это работает (объяснение для новичка):
- *  1. HTML — это структура страницы (кнопки, поля, вкладки)
- *  2. CSS  — это внешний вид (цвета, отступы, скругления)
- *  3. JS   — это поведение: что происходит при нажатии,
- *            сохранение данных, карта, геолокация и т.д.
- *
- *  Мы используем:
- *  - localStorage  → данные сохраняются в браузере телефона
- *  - Geolocation API → определяем координаты пользователя
- *  - Leaflet       → рисуем интерактивную карту
- *  - Telegram WebApp → подстраиваемся под тему Telegram
+ * СМАРТ КУЗБАСС — Telegram Mini App
+ * Обновлённая версия с авторизацией, исправлениями фото и интерфейса
  */
-
-// ============================================================
-// 1. ПОДКЛЮЧЕНИЕ К TELEGRAM
-// ============================================================
-// Telegram передаёт специальный объект window.Telegram.WebApp
-// Через него можно узнать данные пользователя, закрыть окно и т.д.
 
 const tg = window.Telegram?.WebApp;
 
 if (tg) {
-  // Раскрываем приложение на весь экран
   tg.expand();
-  
-  // Подстраиваем цвета под тему Telegram (светлая/тёмная)
   tg.setHeaderColor('#6B5CE7');
   tg.setBackgroundColor('#F5F7FB');
-  
-  // Говорим Telegram, что приложение готово
   tg.ready();
-  
-  console.log('Telegram WebApp подключён. Пользователь:', tg.initDataUnsafe?.user);
 }
-
-// ============================================================
-// 2. ДАННЫЕ ПРИЛОЖЕНИЯ
-// ============================================================
-// Здесь мы храним все обращения. В реальном проекте они
-// будут на сервере. Сейчас — в localStorage (память браузера).
 
 const STORAGE_KEY = 'smart_kuzbass_appeals';
 const PROFILE_KEY = 'smart_kuzbass_profile';
+const USERS_KEY = 'smart_kuzbass_users';
+const SESSION_KEY = 'smart_kuzbass_session';
 
-// Категории для красивого отображения
 const CATEGORIES = {
   roads: 'Дороги и тротуары',
   lighting: 'Освещение',
@@ -64,191 +32,298 @@ const STATUS_LABELS = {
   done: 'Решено'
 };
 
-// Текущие координаты пользователя
 let currentPosition = null;
 let map = null;
 let userMarker = null;
 let appealMarkers = [];
 
 // ============================================================
-// 3. РАБОТА С ДАННЫМИ (localStorage)
+// ХРАНИЛИЩЕ
 // ============================================================
-// localStorage — это как маленькая база данных внутри браузера.
-// Данные не исчезают при закрытии приложения.
 
 function getAppeals() {
-  const data = localStorage.getItem(STORAGE_KEY);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
 
 function saveAppeals(appeals) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appeals));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appeals));
+    return true;
+  } catch (e) {
+    console.error('Не удалось сохранить обращения', e);
+    // Если переполнили localStorage — убираем фото у старых
+    const cleaned = appeals.map((a, i) => {
+      if (i > 15) return { ...a, photo: null };
+      return a;
+    });
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+      return true;
+    } catch {
+      alert('Не хватает места для сохранения. Удалите старые обращения.');
+      return false;
+    }
+  }
 }
 
 function getProfile() {
-  const data = localStorage.getItem(PROFILE_KEY);
-  return data ? JSON.parse(data) : {
-    name: '',
-    phone: '',
-    city: 'Кемерово',
-    avatar: ''
-  };
+  try {
+    const data = localStorage.getItem(PROFILE_KEY);
+    return data ? JSON.parse(data) : { name: '', phone: '', city: 'Кемерово', avatar: '' };
+  } catch {
+    return { name: '', phone: '', city: 'Кемерово', avatar: '' };
+  }
 }
 
 function saveProfile(profile) {
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
 }
 
+function getUsers() {
+  try {
+    const data = localStorage.getItem(USERS_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getSession() {
+  return localStorage.getItem(SESSION_KEY);
+}
+
+function setSession(phone) {
+  localStorage.setItem(SESSION_KEY, phone);
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
 // ============================================================
-// 4. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+// АВТОРИЗАЦИЯ
 // ============================================================
-// Это самая важная часть интерфейса.
-// При нажатии на кнопку внизу мы:
-// 1. Убираем класс "active" у всех вкладок
-// 2. Добавляем его только к нужной
+
+function showAuth() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+}
+
+function showApp() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  // После показа приложения инициализируем карту, если ещё нет
+  setTimeout(() => {
+    if (!map) initMap();
+    else map.invalidateSize();
+  }, 150);
+}
+
+function checkAuth() {
+  const session = getSession();
+  if (session) {
+    showApp();
+    loadProfile();
+  } else {
+    showAuth();
+  }
+}
+
+// Переключение вкладок Вход / Регистрация
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const mode = tab.dataset.auth;
+    document.getElementById('login-form').classList.toggle('hidden', mode !== 'login');
+    document.getElementById('register-form').classList.toggle('hidden', mode !== 'register');
+    document.getElementById('login-error').classList.add('hidden');
+    document.getElementById('register-error').classList.add('hidden');
+  });
+});
+
+// Регистрация
+document.getElementById('register-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = document.getElementById('reg-name').value.trim();
+  const phone = document.getElementById('reg-phone').value.trim();
+  const city = document.getElementById('reg-city').value.trim() || 'Кемерово';
+  const password = document.getElementById('reg-password').value;
+
+  const errorEl = document.getElementById('register-error');
+  errorEl.classList.add('hidden');
+
+  if (!name || !phone || !password) {
+    errorEl.textContent = 'Заполните все поля';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  const users = getUsers();
+  if (users[phone]) {
+    errorEl.textContent = 'Этот номер уже зарегистрирован. Войдите.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  users[phone] = { name, phone, city, password, avatar: '' };
+  saveUsers(users);
+
+  // Сразу сохраняем профиль и сессию
+  saveProfile({ name, phone, city, avatar: '' });
+  setSession(phone);
+
+  showApp();
+  loadProfile();
+});
+
+// Вход
+document.getElementById('login-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const phone = document.getElementById('login-phone').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  const errorEl = document.getElementById('login-error');
+  errorEl.classList.add('hidden');
+
+  const users = getUsers();
+  const user = users[phone];
+
+  if (!user || user.password !== password) {
+    errorEl.textContent = 'Неверный номер или пароль';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  saveProfile({
+    name: user.name,
+    phone: user.phone,
+    city: user.city || 'Кемерово',
+    avatar: user.avatar || ''
+  });
+  setSession(phone);
+
+  showApp();
+  loadProfile();
+});
+
+// Выход
+document.getElementById('btn-logout').addEventListener('click', () => {
+  if (confirm('Выйти из профиля?')) {
+    clearSession();
+    showAuth();
+    // Сбрасываем формы
+    document.getElementById('login-form').reset();
+    document.getElementById('register-form').reset();
+  }
+});
+
+// ============================================================
+// ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
+// ============================================================
 
 document.querySelectorAll('.nav-item').forEach(button => {
   button.addEventListener('click', () => {
-    const tabName = button.dataset.tab; // "map", "add", "feed", "profile"
-    
-    // Убираем активный класс у всех кнопок и вкладок
+    const tabName = button.dataset.tab;
+
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    
-    // Добавляем активный класс выбранным
+
     button.classList.add('active');
     document.getElementById(`tab-${tabName}`).classList.add('active');
-    
-    // Специальные действия при открытии вкладки
+
     if (tabName === 'map') {
-      // Карта должна пересчитать размер, когда становится видимой
       setTimeout(() => {
-        if (map) map.invalidateSize();
-        locateUser();
+        if (map) {
+          map.invalidateSize();
+          locateUser();
+        }
       }, 100);
     }
-    
+
     if (tabName === 'feed') {
       renderFeed();
     }
-    
+
     if (tabName === 'profile') {
       loadProfile();
-      updateStats();
     }
   });
 });
 
 // ============================================================
-// 5. КАРТА (Leaflet)
+// КАРТА
 // ============================================================
-// Leaflet — бесплатная библиотека для карт.
-// Мы подключаем её через CDN (ссылка в HTML).
 
 function initMap() {
-  // Создаём карту. Центр — примерно Кемерово
-  map = L.map('map').setView([55.354, 86.087], 13);
-  
-  // Добавляем слой тайлов (картинки карты)
-  // Используем OpenStreetMap — бесплатный и открытый
+  if (map) return;
+
+  map = L.map('map', {
+    zoomControl: false,      // убираем +/-
+    attributionControl: false // убираем водяной знак
+  }).setView([55.354, 86.087], 13);
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
     maxZoom: 19
   }).addTo(map);
-  
-  // Когда карта готова — пытаемся найти пользователя
+
   locateUser();
 }
 
 function locateUser() {
-  const statusEl = document.getElementById('location-status');
-  
-  if (!navigator.geolocation) {
-    statusEl.textContent = 'Геолокация не поддерживается вашим устройством';
-    return;
-  }
-  
-  statusEl.textContent = 'Ищем вас...';
-  
+  if (!navigator.geolocation) return;
+
   navigator.geolocation.getCurrentPosition(
-    // Успех
     (position) => {
       const { latitude, longitude } = position.coords;
       currentPosition = { lat: latitude, lng: longitude };
-      
-      // Перемещаем карту к пользователю
-      map.setView([latitude, longitude], 15);
-      
-      // Убираем старый маркер, если был
-      if (userMarker) {
-        map.removeLayer(userMarker);
+
+      if (map) {
+        map.setView([latitude, longitude], 15);
+
+        if (userMarker) map.removeLayer(userMarker);
+
+        userMarker = L.marker([latitude, longitude], { title: 'Вы здесь' })
+          .addTo(map)
+          .bindPopup('Это вы')
+          .openPopup();
+
+        renderAppealMarkers();
       }
-      
-      // Ставим новый маркер
-      userMarker = L.marker([latitude, longitude], {
-        title: 'Вы здесь'
-      }).addTo(map)
-        .bindPopup('Это вы')
-        .openPopup();
-      
-      statusEl.textContent = `📍 Ваши координаты: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-      
-      // Обновляем текст в форме
-      updateFormLocation();
-      
-      // Рисуем маркеры обращений
-      renderAppealMarkers();
     },
-    // Ошибка
     (error) => {
-      console.error('Ошибка геолокации:', error);
-      let message = 'Не удалось вас найти';
-      
-      if (error.code === 1) {
-        message = 'Вы запретили доступ к геолокации. Разрешите в настройках браузера.';
-      } else if (error.code === 2) {
-        message = 'Местоположение недоступно. Проверьте GPS.';
-      } else if (error.code === 3) {
-        message = 'Превышено время ожидания. Попробуйте ещё раз.';
-      }
-      
-      statusEl.textContent = message;
-      
-      // Если нет геолокации — ставим центр Кемерово
+      console.error('Геолокация:', error);
       if (!currentPosition) {
         currentPosition = { lat: 55.354, lng: 86.087 };
-        map.setView([55.354, 86.087], 13);
+        if (map) map.setView([55.354, 86.087], 13);
       }
     },
-    {
-      enableHighAccuracy: true,  // Точнее (GPS)
-      timeout: 10000,            // 10 секунд
-      maximumAge: 60000          // Можно использовать кэш до 1 минуты
-    }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
   );
 }
 
-// Кнопка "Моё местоположение"
 document.getElementById('btn-locate').addEventListener('click', locateUser);
 
-// ============================================================
-// 6. МАРКЕРЫ ОБРАЩЕНИЙ НА КАРТЕ
-// ============================================================
-
 function renderAppealMarkers() {
-  // Удаляем старые маркеры
+  if (!map) return;
   appealMarkers.forEach(m => map.removeLayer(m));
   appealMarkers = [];
-  
-  const appeals = getAppeals();
-  
-  appeals.forEach(appeal => {
+
+  getAppeals().forEach(appeal => {
     if (!appeal.lat || !appeal.lng) return;
-    
-    // Цвет маркера зависит от статуса
+
     const color = appeal.status === 'done' ? 'green' :
                   appeal.status === 'in_progress' ? 'orange' : 'blue';
-    
+
     const marker = L.circleMarker([appeal.lat, appeal.lng], {
       radius: 10,
       fillColor: color,
@@ -257,71 +332,106 @@ function renderAppealMarkers() {
       opacity: 1,
       fillOpacity: 0.8
     }).addTo(map);
-    
+
     marker.bindPopup(`
-      <strong>${appeal.title}</strong><br>
+      <strong>${escapeHtml(appeal.title)}</strong><br>
       ${CATEGORIES[appeal.category] || appeal.category}<br>
       <em>${STATUS_LABELS[appeal.status]}</em>
     `);
-    
+
     appealMarkers.push(marker);
   });
 }
 
 // ============================================================
-// 7. ФОРМА ДОБАВЛЕНИЯ ОБРАЩЕНИЯ
+// СЖАТИЕ ФОТО (чтобы не падало сохранение)
 // ============================================================
 
-function updateFormLocation() {
-  const el = document.getElementById('form-location');
-  if (currentPosition) {
-    el.textContent = `📍 ${currentPosition.lat.toFixed(5)}, ${currentPosition.lng.toFixed(5)}`;
-  } else {
-    el.textContent = 'Местоположение не определено. Нажмите «Обновить»';
-  }
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round(height * maxWidth / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
-document.getElementById('btn-refresh-location').addEventListener('click', () => {
-  locateUser();
-});
+// ============================================================
+// ФОРМА ОБРАЩЕНИЯ
+// ============================================================
 
-// Предпросмотр фото
-document.getElementById('appeal-photo').addEventListener('change', (e) => {
+document.getElementById('appeal-photo').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   const preview = document.getElementById('photo-preview');
-  
+
   if (!file) {
     preview.classList.add('hidden');
     preview.innerHTML = '';
     return;
   }
-  
-  // FileReader — читает файл и превращает его в картинку (base64)
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    preview.innerHTML = `<img src="${event.target.result}" alt="Фото">`;
+
+  try {
+    const compressed = await compressImage(file, 600, 0.65);
+    preview.innerHTML = `<img src="${compressed}" alt="Фото">`;
     preview.classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
+    // Сохраняем сжатое фото во временное свойство
+    preview.dataset.compressed = compressed;
+  } catch {
+    alert('Не удалось загрузить фото');
+  }
 });
 
-// Отправка формы
-document.getElementById('appeal-form').addEventListener('submit', (e) => {
-  e.preventDefault(); // Не перезагружаем страницу
-  
+document.getElementById('appeal-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
   const category = document.getElementById('appeal-category').value;
   const title = document.getElementById('appeal-title').value.trim();
   const description = document.getElementById('appeal-description').value.trim();
   const photoInput = document.getElementById('appeal-photo');
-  
+  const preview = document.getElementById('photo-preview');
+
   if (!category || !title || !description) {
     alert('Заполните все обязательные поля');
     return;
   }
-  
-  // Создаём объект обращения
+
+  let photo = null;
+
+  // Берём уже сжатое фото из превью, если есть
+  if (preview.dataset.compressed) {
+    photo = preview.dataset.compressed;
+  } else if (photoInput.files[0]) {
+    try {
+      photo = await compressImage(photoInput.files[0], 600, 0.65);
+    } catch {
+      alert('Не удалось обработать фото. Отправляем без фото.');
+    }
+  }
+
   const appeal = {
-    id: Date.now().toString(),           // Уникальный ID (время)
+    id: Date.now().toString(),
     category,
     title,
     description,
@@ -329,84 +439,73 @@ document.getElementById('appeal-form').addEventListener('submit', (e) => {
     createdAt: new Date().toISOString(),
     lat: currentPosition?.lat || null,
     lng: currentPosition?.lng || null,
-    photo: null
+    photo
   };
-  
-  // Если есть фото — сохраняем его как base64 (для прототипа)
-  // В реальном приложении фото загружают на сервер
-  if (photoInput.files[0]) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      appeal.photo = event.target.result;
-      finishSubmit(appeal);
-    };
-    reader.readAsDataURL(photoInput.files[0]);
-  } else {
-    finishSubmit(appeal);
-  }
+
+  const ok = finishSubmit(appeal);
+  if (!ok) return;
 });
 
 function finishSubmit(appeal) {
-  // Сохраняем
   const appeals = getAppeals();
-  appeals.unshift(appeal); // Добавляем в начало списка
-  saveAppeals(appeals);
-  
-  // Показываем сообщение об успехе
+  appeals.unshift(appeal);
+  const saved = saveAppeals(appeals);
+  if (!saved) return false;
+
   document.getElementById('appeal-form').classList.add('hidden');
   document.getElementById('form-success').classList.remove('hidden');
-  
-  // Очищаем форму через 2 секунды
+
   setTimeout(() => {
     document.getElementById('appeal-form').reset();
-    document.getElementById('photo-preview').classList.add('hidden');
-    document.getElementById('photo-preview').innerHTML = '';
+    const preview = document.getElementById('photo-preview');
+    preview.classList.add('hidden');
+    preview.innerHTML = '';
+    delete preview.dataset.compressed;
+
     document.getElementById('appeal-form').classList.remove('hidden');
     document.getElementById('form-success').classList.add('hidden');
-    
-    // Переключаемся на ленту, чтобы пользователь увидел своё обращение
+
     document.querySelector('[data-tab="feed"]').click();
-  }, 2000);
-  
-  // Обновляем маркеры на карте
+  }, 1800);
+
   if (map) renderAppealMarkers();
+  return true;
 }
 
 // ============================================================
-// 8. ЛЕНТА ОБРАЩЕНИЙ
+// ЛЕНТА
 // ============================================================
 
 function renderFeed() {
   const list = document.getElementById('appeals-list');
   const filter = document.getElementById('feed-filter').value;
-  
+
   let appeals = getAppeals();
-  
-  // Фильтрация
   if (filter !== 'all') {
     appeals = appeals.filter(a => a.status === filter);
   }
-  
+
   if (appeals.length === 0) {
     list.innerHTML = `
       <div class="empty-state">
         <p>Пока нет обращений</p>
-        <p style="font-size:13px; margin-top:8px;">Значит, всё хорошо :)) </p>
-        <img src="img/open.png" class="nav-icon-img-big" alt="Добавить">
+        <p style="font-size:13px; margin-top:8px;">Значит, всё хорошо :)</p>
+        <img src="img/open.png" class="nav-icon-img-big" alt="" style="margin-top:12px;">
       </div>
     `;
     return;
   }
-  
+
   list.innerHTML = appeals.map(appeal => {
     const date = new Date(appeal.createdAt);
     const dateStr = date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
     });
-    
+
+    const photoHtml = appeal.photo
+      ? `<div class="appeal-photo"><img src="${appeal.photo}" alt="Фото"></div>`
+      : '';
+
     return `
       <article class="appeal-card status-${appeal.status}">
         <div class="appeal-header">
@@ -418,15 +517,14 @@ function renderFeed() {
         <div class="appeal-meta">${dateStr}</div>
         <p class="appeal-desc">${escapeHtml(appeal.description)}</p>
         <span class="appeal-category">${CATEGORIES[appeal.category] || appeal.category}</span>
+        ${photoHtml}
       </article>
     `;
   }).join('');
 }
 
-// Фильтр
 document.getElementById('feed-filter').addEventListener('change', renderFeed);
 
-// Защита от XSS (важная привычка)
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -434,32 +532,37 @@ function escapeHtml(text) {
 }
 
 // ============================================================
-// 9. ПРОФИЛЬ
+// ПРОФИЛЬ
 // ============================================================
 
 function loadProfile() {
   const profile = getProfile();
-  
+
   document.getElementById('profile-name').value = profile.name || '';
   document.getElementById('profile-phone').value = profile.phone || '';
   document.getElementById('profile-city').value = profile.city || 'Кемерово';
-  
+
+  // Имя под фото
+  document.getElementById('profile-display-name').textContent =
+    profile.name || 'Пользователь';
+
   const avatar = document.getElementById('profile-avatar');
   if (profile.avatar) {
     avatar.src = profile.avatar;
   } else if (tg?.initDataUnsafe?.user?.photo_url) {
-    // Если есть фото из Telegram — используем его
     avatar.src = tg.initDataUnsafe.user.photo_url;
-  }
-  
-  // Если пользователь пришёл из Telegram — подставляем имя
-  if (!profile.name && tg?.initDataUnsafe?.user) {
-    const user = tg.initDataUnsafe.user;
-    document.getElementById('profile-name').value = 
-      [user.first_name, user.last_name].filter(Boolean).join(' ');
+  } else {
+    avatar.src = 'img/user.png';
   }
 }
 
+// Кнопка «Редактировать данные»
+document.getElementById('btn-edit-profile').addEventListener('click', () => {
+  const block = document.getElementById('profile-edit-block');
+  block.classList.toggle('hidden');
+});
+
+// Сохранение профиля
 document.getElementById('btn-save-profile').addEventListener('click', () => {
   const profile = {
     name: document.getElementById('profile-name').value.trim(),
@@ -467,19 +570,32 @@ document.getElementById('btn-save-profile').addEventListener('click', () => {
     city: document.getElementById('profile-city').value.trim(),
     avatar: document.getElementById('profile-avatar').src
   };
-  
+
+  if (!profile.name) {
+    alert('Укажите имя');
+    return;
+  }
+
   saveProfile(profile);
-  
-  // Визуальная обратная связь
+
+  // Обновляем и в списке пользователей
+  const users = getUsers();
+  const session = getSession();
+  if (session && users[session]) {
+    users[session].name = profile.name;
+    users[session].city = profile.city;
+    users[session].avatar = profile.avatar;
+    // телефон не меняем — он ключ
+    saveUsers(users);
+  }
+
+  document.getElementById('profile-display-name').textContent = profile.name;
+  document.getElementById('profile-edit-block').classList.add('hidden');
+
   const btn = document.getElementById('btn-save-profile');
-  const oldText = btn.textContent;
+  const old = btn.textContent;
   btn.textContent = '✓ Сохранено';
-  btn.style.background = 'linear-gradient(135deg, #10B981, #059669)';
-  
-  setTimeout(() => {
-    btn.textContent = oldText;
-    btn.style.background = '';
-  }, 1500);
+  setTimeout(() => { btn.textContent = old; }, 1200);
 });
 
 // Смена аватара
@@ -487,50 +603,54 @@ document.getElementById('btn-change-avatar').addEventListener('click', () => {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
-  
-  input.onchange = (e) => {
+
+  input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      document.getElementById('profile-avatar').src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+
+    try {
+      const compressed = await compressImage(file, 300, 0.7);
+      document.getElementById('profile-avatar').src = compressed;
+    } catch {
+      alert('Не удалось загрузить фото');
+    }
   };
-  
+
   input.click();
 });
 
-function updateStats() {
-  const appeals = getAppeals();
-  document.getElementById('stat-appeals').textContent = appeals.length;
-  document.getElementById('stat-resolved').textContent = 
-    appeals.filter(a => a.status === 'done').length;
-}
-
-// Очистка данных (для тестирования)
-document.getElementById('btn-clear-data').addEventListener('click', () => {
-  if (confirm('После подтверждения все данные удалятся. Вы точно хотите?')) {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(PROFILE_KEY);
-    renderFeed();
-    updateStats();
-    loadProfile();
-    if (map) renderAppealMarkers();
-    alert('Данные удалены');
-  }
-});
-
-
 // ============================================================
-// 10. ЗАПУСК ПРИЛОЖЕНИЯ
+// ЗАПУСК
 // ============================================================
 
-// Когда страница полностью загрузилась
 document.addEventListener('DOMContentLoaded', () => {
-  initMap();        // Создаём карту
-  renderFeed();     // Рисуем ленту
-  loadProfile();    // Загружаем профиль
-  updateStats();    // Обновляем счётчики
+  // Демо-данные только если совсем пусто
+  if (getAppeals().length === 0) {
+    saveAppeals([
+      {
+        id: '1',
+        category: 'roads',
+        title: 'Глубокая яма на ул. Ленина',
+        description: 'Около дома 45 образовалась большая яма после дождей.',
+        status: 'in_progress',
+        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+        lat: 55.355,
+        lng: 86.090,
+        photo: null
+      },
+      {
+        id: '2',
+        category: 'lighting',
+        title: 'Не работает фонарь во дворе',
+        description: 'Фонарь около подъезда 3 дома 12 не горит уже неделю.',
+        status: 'new',
+        createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+        lat: 55.350,
+        lng: 86.085,
+        photo: null
+      }
+    ]);
+  }
+
+  checkAuth();
 });
