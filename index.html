@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>SmartKuzbass</title>
   <link rel="shortcut icon" href="img/logo.jpg" type="image/x-icon">
   
@@ -16,166 +16,206 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Шапка приложения -->
-  <header class="app-header">
-    <img src="img/logo.jpg" alt="Смарт Кузбасс" class="logo">
-    <div class="header-text">
+  <!-- ============ ЭКРАН ВХОДА / РЕГИСТРАЦИИ ============ -->
+  <div id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <img src="img/logo.jpg" alt="Логотип" class="auth-logo">
       <h1>Смарт Кузбасс</h1>
-      <p>Делаем жизнь граждан легче</p>
-    </div>
-  </header>
+      <p class="auth-subtitle">Войдите или создайте аккаунт</p>
 
-  <!-- Основной контент (вкладки) -->
-  <main class="app-content">
-    
-    <!-- Вкладка: Карта -->
-    <section id="tab-map" class="tab-content active">
-      <div class="tab-header">
-          <h2>Карта</h2>
-        <button id="btn-locate" class="btn-icon" title="Моё местоположение">
-          <img src="img/pin.png" class="nav-icon-img" alt="Пин">
-        </button>
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab active" data-auth="login">Вход</button>
+        <button type="button" class="auth-tab" data-auth="register">Регистрация</button>
       </div>
-      <div id="map" class="map-container"></div>
-      <div class="map-info">
-        <p id="location-status">Ищем где вы сейчас...</p>
-      </div>
-    </section>
 
-    <!-- Вкладка: Добавить обращение -->
-    <section id="tab-add" class="tab-content">
-      <div class="tab-header">
-        <h2>Создать обращение</h2>
-      </div>
-      
-      <form id="appeal-form" class="appeal-form">
+      <!-- Форма входа -->
+      <form id="login-form" class="auth-form">
         <div class="form-group">
-          <label for="appeal-category">Категория*</label>
-          <select id="appeal-category" required>
-            <option value="">Выберите категорию</option>
-            <option value="roads">Дороги и тротуары</option>
-            <option value="lighting">Освещение</option>
-            <option value="cleaning">Уборка и чистота</option>
-            <option value="playgrounds">Детские площадки</option>
-            <option value="utilities">Коммунальные услуги</option>
-            <option value="other">Другое</option>
-          </select>
+          <label for="login-phone">Номер телефона</label>
+          <input type="tel" id="login-phone" placeholder="+7 (999) 123-45-67" required>
         </div>
-
         <div class="form-group">
-          <label for="appeal-title">Опишите проблему*</label>
-          <input type="text" id="appeal-title" placeholder="Например: Гололед" maxlength="80" required>
+          <label for="login-password">Пароль</label>
+          <input type="password" id="login-password" placeholder="Ваш пароль" required>
         </div>
-
-        <div class="form-group">
-          <label for="appeal-description">Подробности*</label>
-          <textarea id="appeal-description" rows="4" placeholder="Очень скользко, ходить невозможно" required></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="appeal-photo">Фото</label>
-          <input type="file" id="appeal-photo" accept="image/*" capture="environment">
-          <div id="photo-preview" class="photo-preview hidden"></div>
-        </div>
-
-        <div class="form-group location-group">
-          <label>Местоположение</label>
-          <p id="form-location" class="location-text">Ищем вас...</p>
-          <button type="button" id="btn-refresh-location" class="btn-secondary">Обновить</button>
-        </div>
-
-        <button type="submit" class="btn-primary">Отправить</button>
+        <button type="submit" class="btn-primary">Войти</button>
+        <p id="login-error" class="auth-error hidden"></p>
       </form>
 
-      <div id="form-success" class="success-message hidden">
-        <img src="img/check.png" class="nav-icon-img-big" alt="">
-        Обращение отправлено! Следите за статусом в профиле
-      </div>
-    </section>
+      <!-- Форма регистрации -->
+      <form id="register-form" class="auth-form hidden">
+        <div class="form-group">
+          <label for="reg-name">Имя</label>
+          <input type="text" id="reg-name" placeholder="Как вас зовут" required>
+        </div>
+        <div class="form-group">
+          <label for="reg-phone">Номер телефона</label>
+          <input type="tel" id="reg-phone" placeholder="+7 (999) 123-45-67" required>
+        </div>
+        <div class="form-group">
+          <label for="reg-city">Город</label>
+          <input type="text" id="reg-city" placeholder="Кемерово" value="Кемерово">
+        </div>
+        <div class="form-group">
+          <label for="reg-password">Пароль</label>
+          <input type="password" id="reg-password" placeholder="Придумайте пароль" required minlength="4">
+        </div>
+        <button type="submit" class="btn-primary">Зарегистрироваться</button>
+        <p id="register-error" class="auth-error hidden"></p>
+      </form>
+    </div>
+  </div>
 
-    <!-- Вкладка: Лента -->
-    <section id="tab-feed" class="tab-content">
-      <div class="tab-header">
-        <h2>Лента обращений</h2>
-        <select id="feed-filter" class="filter-select">
-          <option value="all">Все</option>
-          <option value="new">Новые</option>
-          <option value="in_progress">В работе</option>
-          <option value="done">Решено</option>
-        </select>
+  <!-- ============ ОСНОВНОЕ ПРИЛОЖЕНИЕ ============ -->
+  <div id="app" class="app hidden">
+    <!-- Шапка -->
+    <header class="app-header">
+      <img src="img/logo.jpg" alt="Смарт Кузбасс" class="logo">
+      <div class="header-text">
+        <h1>Смарт Кузбасс</h1>
+        <p>Делаем жизнь граждан легче</p>
       </div>
+    </header>
+
+    <main class="app-content">
       
-      <div id="appeals-list" class="appeals-list">
-        <!-- Обращения будут добавлены через JavaScript -->
-      </div>
-    </section>
-
-    <!-- Вкладка: Профиль -->
-    <section id="tab-profile" class="tab-content">
-      <div class="tab-header">
-        <h2>Профиль</h2>
-      </div>
-
-      <div class="profile-card">
-        <div class="avatar-wrapper">
-          <img id="profile-avatar" src="img/user.png" alt="Аватар" class="avatar">
-          <button id="btn-change-avatar" class="btn-avatar">
-            <img src="img/photo.png" class="nav-icon-img" alt="">
+      <!-- Вкладка: Карта -->
+      <section id="tab-map" class="tab-content active">
+        <div class="map-wrapper">
+          <div id="map" class="map-container"></div>
+          <!-- Кнопка геолокации прямо на карте -->
+          <button id="btn-locate" class="btn-locate-on-map" title="Моё местоположение">
+            <img src="img/pin.png" alt="Пин">
           </button>
         </div>
+      </section>
+
+      <!-- Вкладка: Добавить обращение -->
+      <section id="tab-add" class="tab-content">
+        <div class="tab-header">
+          <h2>Создать обращение</h2>
+        </div>
         
-        <div class="profile-info">
+        <form id="appeal-form" class="appeal-form">
           <div class="form-group">
-            <label for="profile-name">Имя</label>
-            <input type="text" id="profile-name" placeholder="Ваше имя">
+            <label for="appeal-category">Категория*</label>
+            <select id="appeal-category" required>
+              <option value="">Выберите категорию</option>
+              <option value="roads">Дороги и тротуары</option>
+              <option value="lighting">Освещение</option>
+              <option value="cleaning">Уборка и чистота</option>
+              <option value="playgrounds">Детские площадки</option>
+              <option value="utilities">Коммунальные услуги</option>
+              <option value="other">Другое</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="appeal-title">Опишите проблему*</label>
+            <input type="text" id="appeal-title" placeholder="Например: Гололед" maxlength="80" required>
+          </div>
+
+          <div class="form-group">
+            <label for="appeal-description">Подробности*</label>
+            <textarea id="appeal-description" rows="4" placeholder="Очень скользко, ходить невозможно" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="appeal-photo">Фото</label>
+            <input type="file" id="appeal-photo" accept="image/*" capture="environment">
+            <div id="photo-preview" class="photo-preview hidden"></div>
+          </div>
+
+          <button type="submit" class="btn-primary">Отправить</button>
+        </form>
+
+        <div id="form-success" class="success-message hidden">
+          <img src="img/check.png" class="nav-icon-img-big" alt="">
+          Обращение отправлено! Следите за статусом в ленте
+        </div>
+      </section>
+
+      <!-- Вкладка: Лента -->
+      <section id="tab-feed" class="tab-content">
+        <div class="tab-header">
+          <h2>Лента обращений</h2>
+          <select id="feed-filter" class="filter-select">
+            <option value="all">Все</option>
+            <option value="new">Новые</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Решено</option>
+          </select>
+        </div>
+        
+        <div id="appeals-list" class="appeals-list">
+        </div>
+      </section>
+
+      <!-- Вкладка: Профиль -->
+      <section id="tab-profile" class="tab-content">
+        <div class="tab-header">
+          <h2>Профиль</h2>
+        </div>
+
+        <div class="profile-card">
+          <div class="avatar-wrapper">
+            <img id="profile-avatar" src="img/user.png" alt="Аватар" class="avatar">
+            <button id="btn-change-avatar" class="btn-avatar" type="button">
+              <img src="img/photo.png" class="nav-icon-img" alt="">
+            </button>
           </div>
           
-          <div class="form-group">
-            <label for="profile-phone">Номер</label>
-            <input type="tel" id="profile-phone" placeholder="+7 (999) 123-45-67">
+          <!-- Имя под фотографией -->
+          <p id="profile-display-name" class="profile-display-name">Пользователь</p>
+
+          <!-- Кнопка, которая открывает редактирование данных -->
+          <button id="btn-edit-profile" class="btn-secondary btn-edit-profile" type="button">
+            Редактировать данные
+          </button>
+
+          <!-- Скрытый блок с полями имени / номера / города -->
+          <div id="profile-edit-block" class="profile-info hidden">
+            <div class="form-group">
+              <label for="profile-name">Имя</label>
+              <input type="text" id="profile-name" placeholder="Ваше имя">
+            </div>
+            
+            <div class="form-group">
+              <label for="profile-phone">Номер</label>
+              <input type="tel" id="profile-phone" placeholder="+7 (999) 123-45-67">
+            </div>
+            
+            <div class="form-group">
+              <label for="profile-city">Город</label>
+              <input type="text" id="profile-city" placeholder="Например: Кемерово">
+            </div>
+
+            <button id="btn-save-profile" class="btn-primary" type="button">Сохранить</button>
           </div>
-          
-          <div class="form-group">
-            <label for="profile-city">Город</label>
-            <input type="text" id="profile-city" placeholder="Например: Кемерово" value="Кемерово">
-          </div>
         </div>
 
-        <button id="btn-save-profile" class="btn-primary">Сохранить</button>
-      </div>
-
-      <div class="profile-stats">
-        <div class="stat">
-          <span class="stat-number" id="stat-appeals">0</span>
-          <span class="stat-label">Моих обращений</span>
+        <div class="profile-actions">
+          <button id="btn-logout" class="btn-danger" type="button">Выйти из профиля</button>
         </div>
-        <div class="stat">
-          <span class="stat-number" id="stat-resolved">0</span>
-          <span class="stat-label">Решено</span>
-        </div>
-      </div>
+      </section>
+    </main>
 
-      <div class="profile-actions">
-        <button id="btn-clear-data" class="btn-danger">Удалить данные</button>
-      </div>
-    </section>
-  </main>
-
-  <!-- Нижняя навигация (вкладки) -->
-  <nav class="bottom-nav">
-    <button class="nav-item active" data-tab="map">
-      <img src="img/map.png" class="nav-icon-img" alt="Карта">
-    </button>
-    <button class="nav-item" data-tab="add">
-      <img src="img/add.png" class="nav-icon-img" alt="Добавить">
-    </button>
-    <button class="nav-item" data-tab="feed">
-      <img src="img/news.png" class="nav-icon-img" alt="Новости">
-    </button>
-    <button class="nav-item" data-tab="profile">
-      <img src="img/profile.png" class="nav-icon-img" alt="Профиль">
-    </button>
-  </nav>
+    <!-- Нижняя навигация -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="map" type="button">
+        <img src="img/map.png" class="nav-icon-img" alt="Карта">
+      </button>
+      <button class="nav-item" data-tab="add" type="button">
+        <img src="img/add.png" class="nav-icon-img" alt="Добавить">
+      </button>
+      <button class="nav-item" data-tab="feed" type="button">
+        <img src="img/news.png" class="nav-icon-img" alt="Лента">
+      </button>
+      <button class="nav-item" data-tab="profile" type="button">
+        <img src="img/profile.png" class="nav-icon-img" alt="Профиль">
+      </button>
+    </nav>
+  </div>
 
   <script src="app.js"></script>
 </body>
